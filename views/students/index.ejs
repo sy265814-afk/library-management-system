@@ -1,0 +1,12 @@
+<%- include('../partials/head') %>
+<%- include('../partials/adminStart') %>
+<div class="page-toolbar"><div><p class="page-subtitle">Manage student records and seat assignments.</p></div><a href="/admin/students/new" class="button primary-small">+ Add student</a></div>
+<div class="table-card">
+  <table><thead><tr><th>Student</th><th>ID</th><th>Course</th><th>Seat</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  <% if (!students.length) { %><tr><td colspan="6"><div class="empty-state"><b>No students yet</b><span>Add your first student to begin.</span></div></td></tr><% } %>
+  <% students.forEach(student => { %>
+    <tr><td><strong><%= student.name %></strong><small><%= student.email || 'No email' %></small></td><td><span class="code-pill"><%= student.studentId %></span></td><td><%= student.course || '—' %><small><%= student.semester || '' %></small></td><td><span class="status-chip <%= student.seat ? 'green' : 'muted' %>"><%= student.seat?.seatNumber || 'Unassigned' %></span></td><td><span class="status-chip green"><%= student.status %></span></td><td><div class="actions"><a href="/admin/students/<%= student._id %>/edit">Edit</a><form method="POST" action="/admin/students/<%= student._id %>?_method=DELETE" onsubmit="return confirm('Delete this student?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button>Delete</button></form></div></td></tr>
+  <% }) %>
+  </tbody></table>
+</div>
+<%- include('../partials/adminEnd') %>

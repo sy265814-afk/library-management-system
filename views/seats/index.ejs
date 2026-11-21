@@ -1,0 +1,10 @@
+<%- include('../partials/head') %>
+<%- include('../partials/adminStart') %>
+<div class="page-toolbar"><p class="page-subtitle">Create seats and see live occupancy.</p><a href="/admin/seats/new" class="button primary-small">+ Add seat</a></div>
+<div class="seat-grid">
+<% if (!seats.length) { %><div class="empty-state large-empty"><b>No seats yet</b><span>Add your first library seat.</span></div><% } %>
+<% seats.forEach(seat => { %>
+  <div class="seat-card <%= seat.status.toLowerCase() %>"><div class="seat-top"><span class="seat-number"><%= seat.seatNumber %></span><span class="status-chip <%= seat.status === 'AVAILABLE' ? 'green' : seat.status === 'OCCUPIED' ? 'blue' : 'muted' %>"><%= seat.status %></span></div><h3><%= seat.section %></h3><p><%= seat.floor %></p><div class="seat-student"><%= seat.student ? 'Assigned to ' + seat.student.name : 'Ready for assignment' %></div><div class="actions"><a href="/admin/seats/<%= seat._id %>/edit">Edit</a><% if (!seat.student) { %><form method="POST" action="/admin/seats/<%= seat._id %>?_method=DELETE" onsubmit="return confirm('Delete this seat?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button>Delete</button></form><% } %></div></div>
+<% }) %>
+</div>
+<%- include('../partials/adminEnd') %>

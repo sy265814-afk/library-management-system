@@ -1,0 +1,11 @@
+<% if (flash && flash.length) { %>
+  <div class="flash-stack">
+    <% flash.forEach(item => { %>
+      <div class="flash <%= item.type %>">
+        <span class="flash-icon"><%= item.type === 'success' ? '✓' : '!' %></span>
+        <div><strong><%= item.type === 'success' ? 'Done' : 'Please check' %></strong><p><%= item.message %></p></div>
+        <button type="button" class="flash-close" onclick="this.parentElement.remove()">×</button>
+      </div>
+    <% }) %>
+  </div>
+<% } %>

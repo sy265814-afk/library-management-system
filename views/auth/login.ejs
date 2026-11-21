@@ -1,0 +1,51 @@
+<%- include('../partials/head') %>
+<body class="auth-page">
+<div class="auth-shell">
+  <section class="auth-visual">
+    <a href="/admin/login" class="brand auth-brand">
+      <span class="brand-mark">L</span>
+      <span><strong>LibraryOS</strong><small>LIBRARY OPERATIONS</small></span>
+    </a>
+    <div class="visual-copy">
+      <div class="visual-badge"><i></i> YOUR LIBRARY, IN CONTROL</div>
+      <h2>Make room<br>for <span>better</span><br>reading.</h2>
+      <p>One clear workspace for students, seats, books and every library transaction.</p>
+    </div>
+    <div class="visual-orbit">
+      <div class="orbit-card book-card">▤ <span>Book inventory<small>Always organised</small></span></div>
+      <div class="orbit-book"></div>
+      <div class="spark spark-a">✦</div>
+      <div class="spark spark-b">✦</div>
+    </div>
+  </section>
+
+  <section class="auth-panel">
+    <div class="auth-top"><span>ADMINISTRATION PORTAL</span><span class="secure-pill"><i></i> Secure access</span></div>
+    <div class="auth-form-wrap">
+      <div class="auth-icon">↗</div>
+      <div class="eyebrow">WELCOME BACK</div>
+      <h1>Sign in to your<br><span>workspace.</span></h1>
+      <p class="auth-subtitle">Enter your administrator details to continue.</p>
+      <%- include('../partials/flash') %>
+
+      <form method="POST" action="/admin/login" class="form-stack">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="form-field">
+          <span>Username</span>
+          <div class="input-wrap"><b>@</b><input type="text" name="username" autocomplete="username" required maxlength="80" placeholder="Enter admin username"></div>
+        </label>
+        <label class="form-field">
+          <span>Password</span>
+          <div class="input-wrap"><b>◆</b><input id="loginPassword" type="password" name="password" autocomplete="current-password" required placeholder="Enter your password"><button type="button" class="show-password" data-target="loginPassword">Show</button></div>
+        </label>
+        <button class="primary-action" type="submit">Sign in to Dashboard <span>→</span></button>
+      </form>
+
+      <div class="auth-switch">Don't have an admin account? <a href="/admin/signup">Create account <span>↗</span></a></div>
+    </div>
+    <div class="auth-footer">Authorised library staff only</div>
+  </section>
+</div>
+<script src="/js/app.js" defer></script>
+</body>
+</html>

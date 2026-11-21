@@ -1,0 +1,8 @@
+<%- include('../partials/head') %>
+<%- include('../partials/adminStart') %>
+<div class="page-toolbar"><p class="page-subtitle">Issue books to students and record returns.</p><a href="/admin/issues/new" class="button primary-small">+ Issue book</a></div>
+<div class="table-card"><table><thead><tr><th>Student</th><th>Book</th><th>Issued</th><th>Due</th><th>Status</th><th>Action</th></tr></thead><tbody>
+<% if (!issues.length) { %><tr><td colspan="6"><div class="empty-state"><b>No issue records</b><span>Issue your first book from the button above.</span></div></td></tr><% } %>
+<% issues.forEach(issue => { %><tr><td><strong><%= issue.student?.name || 'Deleted student' %></strong><small><%= issue.student?.studentId || '' %></small></td><td><strong><%= issue.book?.title || 'Deleted book' %></strong><small><%= issue.book?.author || '' %></small></td><td><%= formatDate(issue.issuedAt) %></td><td><%= formatDate(issue.dueAt) %></td><td><span class="status-chip <%= issue.status === 'ISSUED' ? 'blue' : 'green' %>"><%= issue.status %></span></td><td><% if (issue.status === 'ISSUED') { %><form method="POST" action="/admin/issues/<%= issue._id %>/return?_method=PUT"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="table-button" type="submit">Return book</button></form><% } else { %><span class="returned-date"><%= formatDate(issue.returnedAt) %></span><% } %></td></tr><% }) %>
+</tbody></table></div>
+<%- include('../partials/adminEnd') %>

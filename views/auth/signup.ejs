@@ -1,0 +1,49 @@
+<%- include('../partials/head') %>
+<body class="auth-page">
+<div class="auth-shell">
+  <section class="auth-visual">
+    <a href="/admin/login" class="brand auth-brand">
+      <span class="brand-mark">L</span>
+      <span><strong>LibraryOS</strong><small>LIBRARY OPERATIONS</small></span>
+    </a>
+    <div class="visual-copy">
+      <div class="visual-badge"><i></i> SET UP YOUR WORKSPACE</div>
+      <h2>Build a<br><span>smarter</span><br>library.</h2>
+      <p>Create the first administrator account and start managing your library from one clean workspace.</p>
+    </div>
+    <div class="visual-orbit signup-orbit">
+      <div class="orbit-card book-card">✦ <span>Workspace ready<small>Students • Seats • Books</small></span></div>
+      <div class="orbit-book"></div>
+      <div class="spark spark-a">✦</div>
+      <div class="spark spark-b">✦</div>
+    </div>
+  </section>
+
+  <section class="auth-panel">
+    <div class="auth-top"><span>ADMINISTRATION PORTAL</span><span class="secure-pill"><i></i> Secure setup</span></div>
+    <div class="auth-form-wrap signup-wrap">
+      <div class="auth-icon">+</div>
+      <div class="eyebrow">GET STARTED</div>
+      <h1>Create your<br><span>admin account.</span></h1>
+      <p class="auth-subtitle">Set up your secure administrator profile to manage the library.</p>
+      <%- include('../partials/flash') %>
+
+      <form method="POST" action="/admin/signup" class="form-stack">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="two-col">
+          <label class="form-field"><span>Full name</span><input type="text" name="name" required maxlength="100" placeholder="Your name"></label>
+          <label class="form-field"><span>Username</span><input type="text" name="username" required maxlength="80" placeholder="Admin username"></label>
+        </div>
+        <label class="form-field"><span>Password</span><div class="input-wrap"><input id="signupPassword" type="password" name="password" required minlength="8" placeholder="Minimum 8 characters"><button type="button" class="show-password" data-target="signupPassword">Show</button></div></label>
+        <label class="form-field"><span>Confirm password</span><div class="input-wrap"><input id="confirmPassword" type="password" name="confirmPassword" required minlength="8" placeholder="Repeat your password"><button type="button" class="show-password" data-target="confirmPassword">Show</button></div></label>
+        <button class="primary-action" type="submit">Create Admin Account <span>→</span></button>
+      </form>
+
+      <div class="auth-switch">Already have an admin account? <a href="/admin/login">Sign in <span>↗</span></a></div>
+    </div>
+    <div class="auth-footer">Secure administrator registration</div>
+  </section>
+</div>
+<script src="/js/app.js" defer></script>
+</body>
+</html>

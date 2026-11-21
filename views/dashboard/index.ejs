@@ -1,0 +1,21 @@
+<%- include('../partials/head') %>
+<%- include('../partials/adminStart') %>
+<section class="hero-panel">
+  <div><div class="eyebrow">LIBRARY OVERVIEW</div><h2>Good to see you, <span><%= admin?.name || 'Admin' %>.</span></h2><p>Manage your library operations from one place.</p></div>
+  <a href="/admin/students/new" class="hero-action">+ Add student</a>
+</section>
+
+<div class="stats-grid">
+  <a class="stat-card" href="/admin/students"><span class="stat-icon">◉</span><small>Students</small><strong><%= stats.students %></strong><em>Manage students →</em></a>
+  <a class="stat-card" href="/admin/seats"><span class="stat-icon">▦</span><small>Seats</small><strong><%= stats.seats %></strong><em><%= stats.availableSeats %> available →</em></a>
+  <a class="stat-card" href="/admin/books"><span class="stat-icon">▤</span><small>Books</small><strong><%= stats.books %></strong><em>Manage inventory →</em></a>
+  <a class="stat-card" href="/admin/issues"><span class="stat-icon">↗</span><small>Active issues</small><strong><%= stats.activeIssues %></strong><em>Issue / return →</em></a>
+</div>
+
+<section class="quick-grid">
+  <a href="/admin/students/new" class="quick-card"><b>01</b><div><h3>Add student</h3><p>Add a student and assign an available seat.</p></div><span>→</span></a>
+  <a href="/admin/seats/new" class="quick-card"><b>02</b><div><h3>Add seat</h3><p>Create and manage your reading seats.</p></div><span>→</span></a>
+  <a href="/admin/books/new" class="quick-card"><b>03</b><div><h3>Add book</h3><p>Add copies to your library inventory.</p></div><span>→</span></a>
+  <a href="/admin/issues/new" class="quick-card"><b>04</b><div><h3>Issue a book</h3><p>Assign a book to a student with a due date.</p></div><span>→</span></a>
+</section>
+<%- include('../partials/adminEnd') %>
