@@ -7,8 +7,10 @@ const MongoStore = require('connect-mongo');
 const helmet = require('helmet');
 const methodOverride = require('method-override');
 const mongoose = require('mongoose');
+mongoose.set('autoIndex', false);
 
 const connectDatabase = require('./config/database');
+const repairLegacyIndexes = require('./config/repairLegacyIndexes');
 const flashMiddleware = require('./middleware/flash');
 const csrfProtection = require('./middleware/csrf');
 const authRoutes = require('./routes/authRoutes');
@@ -190,8 +192,6 @@ function createApp(sessionStore) {
   app.use((req, res, next) => {
     res.locals.appName = process.env.APP_NAME || 'Library Management System';
 
-    // Make the complete signed-in admin object available to every EJS view.
-    // This fixes "admin is not defined" in dashboard and sidebar templates.
     res.locals.admin = req.session.admin || null;
     res.locals.adminUsername = req.session.admin?.username || '';
 
@@ -233,6 +233,7 @@ async function startServer() {
   }
 
   await connectDatabaseWithDnsFallback();
+  await repairLegacyIndexes();
 
   const sessionStore = MongoStore.create({
     client: mongoose.connection.getClient(),

@@ -1,12 +1,14 @@
 <%- include('../partials/head') %>
 <%- include('../partials/adminStart') %>
-<div class="page-toolbar"><div><p class="page-subtitle">Manage student records and seat assignments.</p></div><a href="/admin/students/new" class="button primary-small">+ Add student</a></div>
+<div class="page-toolbar"><div><p class="page-subtitle">Manage student records, search by ID and keep seat assignments up to date.</p></div><a href="/admin/students/new" class="button primary-small">+ Add student</a></div>
+<form class="list-filter" method="GET" action="/admin/students"><input type="search" name="q" value="<%= search %>" placeholder="Search by student ID, name, email or phone"><button class="button primary-small" type="submit">Search</button><% if (search) { %><a class="filter-clear" href="/admin/students">Clear</a><% } %></form>
 <div class="table-card">
-  <table><thead><tr><th>Student</th><th>ID</th><th>Course</th><th>Seat</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-  <% if (!students.length) { %><tr><td colspan="6"><div class="empty-state"><b>No students yet</b><span>Add your first student to begin.</span></div></td></tr><% } %>
+  <table><thead><tr><th>Student</th><th>Student ID</th><th>Course</th><th>Seat</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  <% if (!students.length) { %><tr><td colspan="6"><div class="empty-state"><b>No students found</b><span>Add a new student or change your search.</span></div></td></tr><% } %>
   <% students.forEach(student => { %>
-    <tr><td><strong><%= student.name %></strong><small><%= student.email || 'No email' %></small></td><td><span class="code-pill"><%= student.studentId %></span></td><td><%= student.course || '—' %><small><%= student.semester || '' %></small></td><td><span class="status-chip <%= student.seat ? 'green' : 'muted' %>"><%= student.seat?.seatNumber || 'Unassigned' %></span></td><td><span class="status-chip green"><%= student.status %></span></td><td><div class="actions"><a href="/admin/students/<%= student._id %>/edit">Edit</a><form method="POST" action="/admin/students/<%= student._id %>?_method=DELETE" onsubmit="return confirm('Delete this student?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button>Delete</button></form></div></td></tr>
+    <tr><td><strong><%= student.name %></strong><small><%= student.email || student.phone || 'Contact not added' %></small></td><td><span class="code-pill"><%= student.studentId %></span></td><td><%= student.course || '—' %><small><%= student.semester || '' %></small></td><td><span class="status-chip <%= student.seat ? 'green' : 'muted' %>"><%= student.seat?.seatNumber || 'Unassigned' %></span></td><td><span class="status-chip <%= student.status === 'ACTIVE' ? 'green' : 'muted' %>"><%= student.status %></span></td><td><div class="actions"><a href="/admin/students/<%= student._id %>/edit">Edit</a><form method="POST" action="/admin/students/<%= student._id %>?_method=DELETE" onsubmit="return confirm('Delete this student? Active book issues must be returned first.')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button>Delete</button></form></div></td></tr>
   <% }) %>
   </tbody></table>
 </div>
+<%- include('../partials/pagination') %>
 <%- include('../partials/adminEnd') %>

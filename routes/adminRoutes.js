@@ -22,6 +22,7 @@ router.get('/seats/new', requireAdmin, seatController.newForm);
 router.post('/seats', requireAdmin, seatController.create);
 router.get('/seats/:id/edit', requireAdmin, seatController.editForm);
 router.put('/seats/:id', requireAdmin, seatController.update);
+router.post('/seats/:id/release', requireAdmin, seatController.release);
 router.delete('/seats/:id', requireAdmin, seatController.delete);
 
 router.get('/books', requireAdmin, bookController.index);

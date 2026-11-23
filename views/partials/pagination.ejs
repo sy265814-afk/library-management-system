@@ -1,0 +1,9 @@
+<% if (pagination && pagination.total > pagination.limit) { %>
+  <div class="pagination-bar">
+    <span>Showing page <strong><%= pagination.page %></strong> of <strong><%= pagination.pages %></strong> · <%= pagination.total.toLocaleString('en-IN') %> records</span>
+    <div class="pagination-actions">
+      <% if (pagination.hasPrevious) { %><a href="<%= pagination.previousUrl %>">← Previous</a><% } else { %><span class="disabled">← Previous</span><% } %>
+      <% if (pagination.hasNext) { %><a href="<%= pagination.nextUrl %>">Next →</a><% } else { %><span class="disabled">Next →</span><% } %>
+    </div>
+  </div>
+<% } %>

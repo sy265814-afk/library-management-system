@@ -1,150 +1,277 @@
 const Student = require('../models/Student');
 const Seat = require('../models/Seat');
+const Issue = require('../models/Issue');
+const { cleanText, normalizeCode, escapeRegex, getPagination, buildPagination, isValidObjectId } = require('../utils/validation');
+const { duplicateMessage, isDuplicateKey } = require('../utils/duplicateKey');
+
+function studentInput(body) {
+  const payload = {
+    studentId: normalizeCode(body.studentId, 50),
+    name: cleanText(body.name, 120),
+    email: cleanText(body.email, 150).toLowerCase() || undefined,
+    phone: cleanText(body.phone, 25),
+    course: cleanText(body.course, 100),
+    semester: cleanText(body.semester, 40),
+    status: body.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE'
+  };
+  if (!payload.studentId || !payload.name) {
+    const error = new Error('Student ID and student name are required.');
+    error.isFormError = true;
+    throw error;
+  }
+  return payload;
+}
+
+function handleSaveError(req, res, error, redirectTo, next, labels) {
+  if (isDuplicateKey(error)) {
+    req.flash('error', duplicateMessage(error, labels));
+    return res.redirect(redirectTo);
+  }
+  if (error.isFormError || error.name === 'ValidationError' || error.name === 'CastError') {
+    req.flash('error', error.message);
+    return res.redirect(redirectTo);
+  }
+  return next(error);
+}
 
 exports.index = async (req, res, next) => {
   try {
-    const students = await Student.find().populate('seat').sort({ createdAt: -1 });
-    res.render('students/index', { title: 'Students', students });
-  } catch (error) {
-    next(error);
-  }
+    const q = cleanText(req.query.q, 80);
+    const pageData = getPagination(req.query);
+    const filter = {};
+    if (q) {
+      const prefix = new RegExp(`^${escapeRegex(q.toLocaleLowerCase('en-IN'))}`);
+      const codePrefix = new RegExp(`^${escapeRegex(normalizeCode(q, 80))}`);
+      filter.$or = [
+        { studentId: codePrefix },
+        { nameNormalized: prefix },
+        { email: new RegExp(`^${escapeRegex(q.toLowerCase())}`) },
+        { phone: new RegExp(`^${escapeRegex(q)}`) }
+      ];
+    }
+
+    const [students, total] = await Promise.all([
+      Student.find(filter).select('+nameNormalized').populate('seat').sort({ createdAt: -1, _id: -1 }).skip(pageData.skip).limit(pageData.limit).lean(),
+      Student.countDocuments(filter)
+    ]);
+
+    res.render('students/index', {
+      title: 'Students', students, search: q,
+      pagination: buildPagination(total, pageData.page, pageData.limit, { q })
+    });
+  } catch (error) { next(error); }
 };
 
 exports.newForm = async (req, res, next) => {
   try {
-    const seats = await Seat.find({ status: 'AVAILABLE' }).sort({ seatNumber: 1 });
+    const seats = await Seat.find({ status: 'AVAILABLE', student: null }).sort({ seatNumber: 1 }).limit(500).lean();
     res.render('students/form', { title: 'Add Student', student: null, seats, mode: 'create' });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 exports.create = async (req, res, next) => {
+  const redirectTo = '/admin/students/new';
+  let createdStudent = null;
+  let claimedSeatId = null;
   try {
-    const { studentId, name, email, phone, course, semester, seatId } = req.body;
+    const payload = studentInput(req.body);
 
-    if (!studentId || !name) {
-      req.flash('error', 'Student ID and name are required.');
-      return res.redirect('/admin/students/new');
+    const duplicate = await Student.findOne({ studentId: payload.studentId }).select('_id').lean();
+    if (duplicate) {
+      req.flash('error', `Student ID ${payload.studentId} is already in use. Enter a different Student ID.`);
+      return res.redirect(redirectTo);
     }
 
-    const student = await Student.create({
-      studentId,
-      name,
-      email,
-      phone,
-      course,
-      semester
-    });
+    if (req.body.seatId && !isValidObjectId(req.body.seatId)) {
+      req.flash('error', 'Please select a valid seat.');
+      return res.redirect(redirectTo);
+    }
 
-    if (seatId) {
-      const seat = await Seat.findOne({ _id: seatId, status: 'AVAILABLE' });
+    createdStudent = await Student.create(payload);
+
+    if (req.body.seatId) {
+      const seat = await Seat.findOneAndUpdate(
+        { _id: req.body.seatId, status: 'AVAILABLE', student: null },
+        { $set: { status: 'OCCUPIED', student: createdStudent._id } },
+        { new: true }
+      );
 
       if (!seat) {
-        await Student.findByIdAndDelete(student._id);
-        req.flash('error', 'Selected seat is no longer available.');
-        return res.redirect('/admin/students/new');
+        await Student.findByIdAndDelete(createdStudent._id);
+        req.flash('error', 'That seat is no longer available. Choose another seat.');
+        return res.redirect(redirectTo);
       }
 
-      student.seat = seat._id;
-      await student.save();
-
-      seat.status = 'OCCUPIED';
-      seat.student = student._id;
-      await seat.save();
+      claimedSeatId = seat._id;
+      createdStudent.seat = seat._id;
+      await createdStudent.save();
     }
 
     req.flash('success', 'Student added successfully.');
-    res.redirect('/admin/students');
+    return res.redirect('/admin/students');
   } catch (error) {
-    if (error.code === 11000) {
-      req.flash('error', 'Student ID already exists.');
-      return res.redirect('/admin/students/new');
+    if (claimedSeatId && createdStudent) {
+      await Seat.updateOne({ _id: claimedSeatId, student: createdStudent._id }, { $set: { status: 'AVAILABLE', student: null } }).catch(() => {});
     }
-    next(error);
+    if (createdStudent) await Student.findByIdAndDelete(createdStudent._id).catch(() => {});
+    return handleSaveError(req, res, error, redirectTo, next, { studentId: 'Student ID', email: 'Email address' });
   }
 };
 
 exports.editForm = async (req, res, next) => {
   try {
-    const student = await Student.findById(req.params.id).populate('seat');
+    if (!isValidObjectId(req.params.id)) return res.status(404).render('error', { title: 'Student not found', message: 'Student not found.' });
+    const student = await Student.findById(req.params.id).populate('seat').lean();
     if (!student) return res.status(404).render('error', { title: 'Student not found', message: 'Student not found.' });
 
     const seats = await Seat.find({
       $or: [
-        { status: 'AVAILABLE' },
+        { status: 'AVAILABLE', student: null },
         { _id: student.seat?._id }
       ]
-    }).sort({ seatNumber: 1 });
+    }).sort({ seatNumber: 1 }).limit(500).lean();
 
     res.render('students/form', { title: 'Edit Student', student, seats, mode: 'edit' });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 exports.update = async (req, res, next) => {
+  const redirectTo = `/admin/students/${req.params.id}/edit`;
+  let newlyClaimedSeat = null;
+  let oldSeatReleased = false;
+  let oldSeatId = null;
+  let studentIdForRollback = null;
+  let studentSaved = false;
+
   try {
+    if (!isValidObjectId(req.params.id)) {
+      req.flash('error', 'Invalid student record.');
+      return res.redirect('/admin/students');
+    }
+
     const student = await Student.findById(req.params.id);
-    if (!student) return res.redirect('/admin/students');
+    if (!student) {
+      req.flash('error', 'Student record was not found.');
+      return res.redirect('/admin/students');
+    }
 
-    const oldSeatId = student.seat ? student.seat.toString() : null;
-    const newSeatId = req.body.seatId || null;
+    studentIdForRollback = student._id;
+    const payload = studentInput(req.body);
+    const duplicate = await Student.findOne({ studentId: payload.studentId, _id: { $ne: student._id } }).select('_id').lean();
+    if (duplicate) {
+      req.flash('error', `Student ID ${payload.studentId} is already in use by another student.`);
+      return res.redirect(redirectTo);
+    }
 
-    student.studentId = req.body.studentId;
-    student.name = req.body.name;
-    student.email = req.body.email;
-    student.phone = req.body.phone;
-    student.course = req.body.course;
-    student.semester = req.body.semester;
+    oldSeatId = student.seat ? String(student.seat) : null;
+    const requestedSeatId = req.body.seatId || null;
+    if (requestedSeatId && !isValidObjectId(requestedSeatId)) {
+      req.flash('error', 'Please select a valid seat.');
+      return res.redirect(redirectTo);
+    }
 
-    if (oldSeatId !== newSeatId) {
+    if (requestedSeatId && requestedSeatId !== oldSeatId) {
+      const assignedToAnotherStudent = await Student.findOne({ seat: requestedSeatId, _id: { $ne: student._id } }).select('_id').lean();
+      if (assignedToAnotherStudent) {
+        req.flash('error', 'This seat is already assigned to another student.');
+        return res.redirect(redirectTo);
+      }
+
+      const targetSeat = await Seat.findOne({ _id: requestedSeatId, status: 'AVAILABLE', student: null }).select('_id').lean();
+      if (!targetSeat) {
+        req.flash('error', 'Selected seat is not available.');
+        return res.redirect(redirectTo);
+      }
+
+      // Release the old seat first because the database enforces one occupied
+      // seat per student. If the new seat cannot be claimed, restore the old one.
       if (oldSeatId) {
-        await Seat.findByIdAndUpdate(oldSeatId, {
-          status: 'AVAILABLE',
-          student: null
-        });
+        const released = await Seat.findOneAndUpdate(
+          { _id: oldSeatId, student: student._id, status: 'OCCUPIED' },
+          { $set: { status: 'AVAILABLE', student: null } },
+          { new: true }
+        );
+        oldSeatReleased = Boolean(released);
       }
 
-      if (newSeatId) {
-        const newSeat = await Seat.findOne({ _id: newSeatId, $or: [{ status: 'AVAILABLE' }, { student: student._id }] });
-        if (!newSeat) {
-          req.flash('error', 'Selected seat is not available.');
-          return res.redirect(`/admin/students/${student._id}/edit`);
+      const claimed = await Seat.findOneAndUpdate(
+        { _id: requestedSeatId, status: 'AVAILABLE', student: null },
+        { $set: { status: 'OCCUPIED', student: student._id } },
+        { new: true }
+      );
+
+      if (!claimed) {
+        if (oldSeatReleased) {
+          await Seat.updateOne(
+            { _id: oldSeatId, status: 'AVAILABLE', student: null },
+            { $set: { status: 'OCCUPIED', student: student._id } }
+          );
+          oldSeatReleased = false;
         }
-
-        newSeat.status = 'OCCUPIED';
-        newSeat.student = student._id;
-        await newSeat.save();
+        req.flash('error', 'Selected seat was just assigned to someone else. Please choose another seat.');
+        return res.redirect(redirectTo);
       }
-
-      student.seat = newSeatId;
+      newlyClaimedSeat = claimed._id;
     }
 
+    Object.assign(student, payload);
+    student.seat = requestedSeatId || null;
     await student.save();
+    studentSaved = true;
 
-    req.flash('success', 'Student updated successfully.');
-    res.redirect('/admin/students');
-  } catch (error) {
-    if (error.code === 11000) {
-      req.flash('error', 'Student ID already exists.');
-      return res.redirect(`/admin/students/${req.params.id}/edit`);
+    if (!requestedSeatId && oldSeatId) {
+      await Seat.updateOne(
+        { _id: oldSeatId, student: student._id },
+        { $set: { status: 'AVAILABLE', student: null } }
+      );
     }
-    next(error);
+
+    req.flash('success', 'Student details updated successfully.');
+    return res.redirect('/admin/students');
+  } catch (error) {
+    if (!studentSaved) {
+      if (newlyClaimedSeat) {
+        await Seat.updateOne(
+          { _id: newlyClaimedSeat, student: studentIdForRollback },
+          { $set: { status: 'AVAILABLE', student: null } }
+        ).catch(() => {});
+      }
+      if (oldSeatReleased && oldSeatId && studentIdForRollback) {
+        await Seat.updateOne(
+          { _id: oldSeatId, status: 'AVAILABLE', student: null },
+          { $set: { status: 'OCCUPIED', student: studentIdForRollback } }
+        ).catch(() => {});
+      }
+    }
+    return handleSaveError(req, res, error, redirectTo, next, { studentId: 'Student ID', email: 'Email address' });
   }
 };
 
 exports.delete = async (req, res, next) => {
   try {
-    const student = await Student.findById(req.params.id);
-    if (student?.seat) {
-      await Seat.findByIdAndUpdate(student.seat, { status: 'AVAILABLE', student: null });
+    if (!isValidObjectId(req.params.id)) {
+      req.flash('error', 'Invalid student record.');
+      return res.redirect('/admin/students');
     }
 
-    await Student.findByIdAndDelete(req.params.id);
-    req.flash('success', 'Student removed successfully.');
+    const student = await Student.findById(req.params.id);
+    if (!student) {
+      req.flash('error', 'Student record was not found.');
+      return res.redirect('/admin/students');
+    }
+
+    const activeIssue = await Issue.findOne({ student: student._id, status: 'ISSUED' }).select('_id').lean();
+    if (activeIssue) {
+      req.flash('error', 'Return all currently issued books before deleting this student.');
+      return res.redirect('/admin/students');
+    }
+
+    if (student.seat) {
+      await Seat.updateOne({ _id: student.seat, student: student._id }, { $set: { status: 'AVAILABLE', student: null } });
+    }
+
+    await Student.findByIdAndDelete(student._id);
+    req.flash('success', 'Student deleted successfully.');
     res.redirect('/admin/students');
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
